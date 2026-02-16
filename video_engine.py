@@ -64,8 +64,8 @@ CIRCLE_BORDER_WIDTH = 5        # Border thickness in pixels
 
 # --- Subtitles ---
 SUBTITLE_FONT_SIZE = 38
-SUBTITLE_FONT_COLOR = "#FFFFFF"  # White text
-SUBTITLE_BG_COLOR = (0, 0, 0, 180)  # Semi-transparent black (RGBA)
+SUBTITLE_FONT_COLOR = "#364242"  # Dark teal
+SUBTITLE_BG_COLOR = (0, 0, 0, 0)  # Fully transparent (no background)
 SUBTITLE_FONT = "Helvetica-Neue-Bold"
 SUBTITLE_Y_POSITION = 1350     # Distance from top edge
 SUBTITLE_MAX_WIDTH = 950       # Max width before wrapping
@@ -78,6 +78,13 @@ AUTHOR_FONT_SIZE = 30
 AUTHOR_FONT_COLOR = "#888888"  # Gray
 AUTHOR_FONT = "Helvetica-Neue"
 AUTHOR_Y_POSITION = 1780       # Distance from top edge
+
+# --- Translator ---
+TRANSLATOR_FONT_SIZE = 26
+TRANSLATOR_FONT_COLOR = "#888888"  # Gray
+TRANSLATOR_FONT = "Helvetica-Neue"
+TRANSLATOR_Y_POSITION = 1740   # Above the author name
+TRANSLATOR_SHOW_SECONDS = 3    # Show only in the last N seconds
 
 # --- Output ---
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
@@ -361,7 +368,8 @@ def render_video(
     video_path: str,
     title: str,
     author: str,
-    subtitles: list[dict],
+    translator: str = "",
+    subtitles: list[dict] = None,
     output_filename: str = "output_video.mp4",
 ) -> str:
     """
@@ -371,12 +379,15 @@ def render_video(
         video_path: Path to the input video file (with Arabic audio).
         title: Title text to display.
         author: Author name to display at the bottom.
+        translator: Translator name, shown above author in the last 3 seconds.
         subtitles: List of {"start": float, "end": float, "text": str}.
         output_filename: Name of the output file.
 
     Returns:
         Path to the rendered output video.
     """
+    if subtitles is None:
+        subtitles = []
     output_path = os.path.join(OUTPUT_DIR, output_filename)
     print(f"\n🎬 Rendering video...")
     print(f"   Canvas: {CANVAS_WIDTH}x{CANVAS_HEIGHT}")
@@ -488,6 +499,26 @@ def render_video(
         .with_position(("center", AUTHOR_Y_POSITION))
     )
     layers.append(author_clip)
+
+    # --- Translator (shown in last 3 seconds above author) ---
+    if translator:
+        translator_label = f"Përktheu: {translator}"
+        translator_img = _render_text_image(
+            text=translator_label,
+            font_name=TRANSLATOR_FONT,
+            font_size=TRANSLATOR_FONT_SIZE,
+            font_color=TRANSLATOR_FONT_COLOR,
+            max_width=TITLE_MAX_WIDTH,
+            align="center",
+        )
+        translator_start = max(0, duration - TRANSLATOR_SHOW_SECONDS)
+        translator_clip = (
+            ImageClip(translator_img)
+            .with_start(translator_start)
+            .with_end(duration)
+            .with_position(("center", TRANSLATOR_Y_POSITION))
+        )
+        layers.append(translator_clip)
 
     # --- Compose all layers ---
     print("   🔨 Compositing all layers...")

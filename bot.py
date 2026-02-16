@@ -52,8 +52,17 @@ logger = logging.getLogger(__name__)
 # Conversation states
 STATE_TITLE = 0
 STATE_AUTHOR = 1
+STATE_TRANSLATOR = 4
 STATE_VIDEO = 2
 STATE_SEQ_REVIEW = 3  # Interactive sequence-by-sequence review
+
+# Translator options
+TRANSLATOR_OPTIONS = [
+    "Alban Malaj",
+    "Servet Mata",
+    "Jeton Shasivari",
+    "AbduLlah Beqiri",
+]
 
 # Max file sizes
 MAX_VIDEO_SIZE_MB = 20  # Telegram Bot API getFile limit is 20 MB
@@ -81,7 +90,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         "• Titra shqip të sinkronizuara\n"
         "• Emrin e autorit në fund\n\n"
         "Le të fillojmë! 👇\n\n"
-        "*Hapi 1/3:* Dërgomë *Titullin* e videos.\n"
+        "*Hapi 1/4:* Dërgomë *Titullin* e videos.\n"
         "_(Shembull: Përkujtim nga Kurani Famëlartë)_",
         parse_mode="Markdown",
     )
@@ -103,7 +112,7 @@ async def receive_title(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     context.user_data["title"] = title
     await update.message.reply_text(
         f"✅ Titulli: *{title}*\n\n"
-        f"*Hapi 2/3:* Tani dërgomë *Emrin e Autorit*.\n"
+        f"*Hapi 2/4:* Tani dërgomë *Emrin e Autorit*.\n"
         f"_(Shembull: Shejkh Abdul-Aziz ibn Baz)_",
         parse_mode="Markdown",
     )
@@ -123,9 +132,36 @@ async def receive_author(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return STATE_AUTHOR
 
     context.user_data["author"] = author
+
+    # Show translator selection buttons
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(name, callback_data=f"translator_{i}")]
+        for i, name in enumerate(TRANSLATOR_OPTIONS)
+    ])
+
     await update.message.reply_text(
         f"✅ Autori: *{author}*\n\n"
-        f"*Hapi 3/3:* Tani dërgomë *Videon* 🎥\n"
+        f"*Hapi 3/4:* Zgjidh *Përkthyesin* 👇",
+        parse_mode="Markdown",
+        reply_markup=keyboard,
+    )
+    return STATE_TRANSLATOR
+
+
+# ==============================================================
+# Step 2b: Receive Translator selection
+# ==============================================================
+async def receive_translator(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+
+    idx = int(query.data.split("_")[1])
+    translator = TRANSLATOR_OPTIONS[idx]
+    context.user_data["translator"] = translator
+
+    await query.edit_message_text(
+        f"✅ Përkthyesi: *{translator}*\n\n"
+        f"*Hapi 4/4:* Tani dërgomë *Videon* 🎥\n"
         f"_(Video me audio arabisht. Max {MAX_VIDEO_SIZE_MB} MB)_\n\n"
         f"⚠️ Dërgoje si *dokument/file*, jo si video të kompresuar.",
         parse_mode="Markdown",
@@ -346,6 +382,7 @@ async def _render_final_video(update: Update, context: ContextTypes.DEFAULT_TYPE
     ai_translations = context.user_data["ai_translations"]
     title = context.user_data["title"]
     author = context.user_data["author"]
+    translator = context.user_data.get("translator", "")
     video_path = context.user_data["video_path"]
     session_id = context.user_data["session_id"]
 
@@ -382,6 +419,7 @@ async def _render_final_video(update: Update, context: ContextTypes.DEFAULT_TYPE
             video_path=video_path,
             title=title,
             author=author,
+            translator=translator,
             subtitles=subtitles,
             output_filename=output_filename,
         )
@@ -397,7 +435,8 @@ async def _render_final_video(update: Update, context: ContextTypes.DEFAULT_TYPE
                 video=f,
                 caption=(
                     f"🕌 *{title}*\n"
-                    f"📖 {author}\n\n"
+                    f"📖 {author}\n"
+                    f"✍️ {translator}\n\n"
                     f"Gjeneruar nga Selefi.org AI Video Bot"
                 ),
                 parse_mode="Markdown",
@@ -551,6 +590,9 @@ def main():
             ],
             STATE_AUTHOR: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_author),
+            ],
+            STATE_TRANSLATOR: [
+                CallbackQueryHandler(receive_translator, pattern=r"^translator_\d+$"),
             ],
             STATE_VIDEO: [
                 MessageHandler(
