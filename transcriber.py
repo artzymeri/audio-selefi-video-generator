@@ -639,10 +639,6 @@ def transcribe_and_translate(video_path: str) -> list[dict]:
     # Step 3: AI translates the fine windows to Albanian
     ai_translations = translate_segments(fine_windows)
 
-    # Step 3b: Split translations at punctuation into smaller clauses
-    ai_translations = _split_at_punctuation(ai_translations)
-    print(f"      Split into {len(ai_translations)} sub-sequences at punctuation boundaries")
-
     # Save debug info
     debug_path = os.path.join(TEMP_DIR, "debug_translations.json")
     with open(debug_path, "w", encoding="utf-8") as f:
