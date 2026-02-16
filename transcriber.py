@@ -536,8 +536,8 @@ def _split_at_punctuation(translations: list[dict]) -> list[dict]:
         return translations
 
     # Step 1: Build a word-level timeline from all segments
-    # Each word gets a proportional time position based on its segment
-    word_times = []  # list of (word, estimated_time)
+    # Each word gets a proportional time position and its source Arabic text
+    word_times = []  # list of (word, estimated_time, source_arabic)
 
     for seg in translations:
         text = seg["albanian_ai"].strip()
@@ -545,19 +545,20 @@ def _split_at_punctuation(translations: list[dict]) -> list[dict]:
             continue
         words = text.split()
         seg_duration = seg["end"] - seg["start"]
+        arabic = seg.get("arabic", "")
         for j, word in enumerate(words):
             # Estimate this word's time position within its segment
             if len(words) > 1:
                 word_time = seg["start"] + (j / (len(words) - 1)) * seg_duration
             else:
                 word_time = seg["start"] + seg_duration / 2
-            word_times.append((word, word_time))
+            word_times.append((word, word_time, arabic))
 
     if not word_times:
         return translations
 
     # Step 2: Join all text, then split at clause boundaries (, . ! ?)
-    full_text = " ".join(w for w, _ in word_times)
+    full_text = " ".join(w for w, _, _ in word_times)
 
     # Split at comma or sentence-ending punctuation, keeping punctuation attached
     clauses = re.split(r'(?<=[,;:.!?])\s+', full_text)
@@ -579,6 +580,13 @@ def _split_at_punctuation(translations: list[dict]) -> list[dict]:
 
         clause_start_time = word_times[word_idx][1]
 
+        # Collect unique Arabic source texts for this clause's words
+        arabic_sources = []
+        for wi in range(word_idx, min(word_idx + n_words, len(word_times))):
+            ar = word_times[wi][2]
+            if ar and (not arabic_sources or arabic_sources[-1] != ar):
+                arabic_sources.append(ar)
+
         # Advance word index past this clause's words
         end_word_idx = min(word_idx + n_words - 1, len(word_times) - 1)
         clause_end_time = word_times[end_word_idx][1]
@@ -593,7 +601,7 @@ def _split_at_punctuation(translations: list[dict]) -> list[dict]:
             "id": len(result),
             "start": round(clause_start_time, 2),
             "end": round(clause_end_time, 2),
-            "arabic": "",
+            "arabic": " | ".join(arabic_sources),
             "albanian_ai": clause,
         })
 
