@@ -1,0 +1,17 @@
+# === Telegram Bot ===
+python-telegram-bot==21.10
+
+# === Video Processing ===
+moviepy==2.1.2
+Pillow>=9.2.0,<11.0
+numpy>=1.24.0
+
+# === Audio Transcription (Local Whisper) ===
+# Requires: pip install "setuptools<81" first
+openai-whisper==20240930
+
+# === Google Gemini API ===
+google-generativeai==0.8.4
+
+# === Environment Variables ===
+python-dotenv==1.0.1
