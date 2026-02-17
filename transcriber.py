@@ -631,13 +631,11 @@ def transcribe_and_translate(video_path: str) -> list[dict]:
     # Step 2: Transcribe Arabic with word timestamps
     transcription = transcribe_arabic(audio_path)
     arabic_segments = transcription["segments"]
+    print(f"      Using {len(arabic_segments)} Whisper segments (pause-based)")
 
-    # Step 2b: Create fine-grained time windows from word timestamps
-    fine_windows = _create_fine_windows(arabic_segments, target_duration=5.0)
-    print(f"      Created {len(fine_windows)} fine time windows (~5s each)")
-
-    # Step 3: AI translates the fine windows to Albanian
-    ai_translations = translate_segments(fine_windows)
+    # Step 3: AI translates the segments to Albanian
+    #         (using Whisper's native segments which split at speaker pauses)
+    ai_translations = translate_segments(arabic_segments)
 
     # Save debug info
     debug_path = os.path.join(TEMP_DIR, "debug_translations.json")
